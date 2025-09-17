@@ -1,50 +1,10 @@
-import dotenv from "dotenv";
-dotenv.config();
-
-import { ChatOpenAI } from "@langchain/openai";
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { HumanMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage } from "@langchain/core/messages";
+import { ChatOpenAI } from "@langchain/openai";
 
 import { AgentState } from "states";
 
-
-const nemotronLLM = new ChatOpenAI(
-    {
-        model: 'nvidia/nemotron-nano-9b-v2:free',
-        temperature: 0.8,
-        streaming: true,
-        apiKey: process.env.OPENROUTER_API_KEY,
-        configuration: {
-            baseURL: 'https://openrouter.ai/api/v1',
-        },
-    },
-);
-
-const openaiOSSLLM = new ChatOpenAI(
-    {
-        model: 'openai/gpt-oss-20b:free',
-        temperature: 0.8,
-        streaming: true,
-        apiKey: process.env.OPENROUTER_API_KEY,
-        configuration: {
-            baseURL: 'https://openrouter.ai/api/v1',
-        },
-    },
-);
-
-const qwenLLM = new ChatOpenAI(
-    {
-        model: 'qwen/qwen3-30b-a3b:free',
-        temperature: 0.8,
-        streaming: true,
-        apiKey: process.env.OPENROUTER_API_KEY,
-        configuration: {
-            baseURL: 'https://openrouter.ai/api/v1',
-        },
-    },
-);
-
-const createLLMNode = (llm: ChatOpenAI) => {
+const createLLMQueryNode = (llm: ChatOpenAI) => {
     return async (data: typeof AgentState.State, config?: RunnableConfig): Promise<typeof AgentState.State> => {
         const { messages } = data;
         const result = await llm.invoke(messages, config);
@@ -54,24 +14,23 @@ const createLLMNode = (llm: ChatOpenAI) => {
     };
 };
 
-const callNemotronNode = createLLMNode(nemotronLLM);
-const callOpenaiOSSNode = createLLMNode(openaiOSSLLM);
-const callQwenNode = createLLMNode(qwenLLM);
-
-const updateOriginalResponseNode = (llm: ChatOpenAI) => {
+const createLLMConsolidateQueryNode = (llm: ChatOpenAI) => {
     return async (data: typeof AgentState.State, config?: RunnableConfig): Promise<typeof AgentState.State> => {
         const { messages } = data;
+
+        console.log("Consolidating responses with messages:", messages);
+
         const prompt = `You are ${llm.model}. You are given your original response and other AI responses. Do you wish to update your answer based on the discussion?`;
         messages.push(new HumanMessage(prompt));
         const result = await llm.invoke(messages, config);
+
+        const lastMessage = messages[messages.length - 1];
+        messages.push(new AIMessage(`${llm.model}: ${lastMessage.content}`));
+
         return {
-            messages: [result],
+            messages,
         };
     };
 };
 
-const callNemotronUpdateNode = updateOriginalResponseNode(nemotronLLM);
-const callOpenaiOSSUpdateNode = updateOriginalResponseNode(openaiOSSLLM);
-const callQwenUpdateNode = updateOriginalResponseNode(qwenLLM);
-
-export { callNemotronNode, callOpenaiOSSNode, callQwenNode, callNemotronUpdateNode, callOpenaiOSSUpdateNode, callQwenUpdateNode };
+export { createLLMQueryNode, createLLMConsolidateQueryNode };

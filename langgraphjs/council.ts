@@ -1,34 +1,40 @@
 import { START, END, StateGraph } from "@langchain/langgraph";
-import { HumanMessage, BaseMessage, AIMessage } from "@langchain/core/messages";
+import { AIMessage } from "@langchain/core/messages";
 
 import { AgentState } from "states";
-import { callNemotronNode, callOpenaiOSSNode, callQwenNode, callNemotronUpdateNode, callOpenaiOSSUpdateNode, callQwenUpdateNode } from "./LLMNodes";
+import { nemotronLLM, openaiOSSLLM, qwenLLM } from "./LLMs";
+import { createLLMQueryNode, createLLMConsolidateQueryNode } from "./LLMNodes";
 import { acceptUserMessageNode } from "./HumanNodes";
 import { aggregateResponsesNode } from "./SystemNodes";
 
 
+const queryNemotronNode = createLLMQueryNode(nemotronLLM);
+const queryOpenaiOSSNode = createLLMQueryNode(openaiOSSLLM);
+const queryQwenNode = createLLMQueryNode(qwenLLM);
+const consolidateNemotronNode = createLLMConsolidateQueryNode(nemotronLLM);
+const consolidateOpenaiOSSNode = createLLMConsolidateQueryNode(openaiOSSLLM);
+const consolidateQwenNode = createLLMConsolidateQueryNode(qwenLLM);
+
+
 const workflow = new StateGraph(AgentState)
     .addNode("acceptUserMessage", acceptUserMessageNode)
-    .addNode("callNemotron", callNemotronNode)
-    .addNode("callOpenaiOSS", callOpenaiOSSNode)
-    .addNode("callQwen", callQwenNode)
+    .addNode("queryNemotron", queryNemotronNode)
+    .addNode("queryOpenaiOSS", queryOpenaiOSSNode)
+    .addNode("queryQwen", queryQwenNode)
     .addNode("aggregateResponses", aggregateResponsesNode)
-    .addNode('callNemotronUpdate', callNemotronUpdateNode)
-    .addNode('callOpenaiOSSUpdate', callOpenaiOSSUpdateNode)
-    .addNode('callQwenUpdate', callQwenUpdateNode)
+    // .addNode('consolidateNemotron', consolidateNemotronNode)
+    // .addNode('consolidateOpenaiOSS', consolidateOpenaiOSSNode)
+    .addNode('consolidateQwen', consolidateQwenNode)
     .addEdge(START, "acceptUserMessage")
-    .addEdge('acceptUserMessage', "callNemotron")
-    .addEdge('acceptUserMessage', "callOpenaiOSS")
-    .addEdge('acceptUserMessage', "callQwen")
-    .addEdge('callNemotron', "aggregateResponses")
-    .addEdge('callOpenaiOSS', "aggregateResponses")
-    .addEdge('callQwen', "aggregateResponses")
-    .addEdge('aggregateResponses', "callNemotronUpdate")
-    .addEdge('aggregateResponses', "callOpenaiOSSUpdate")
-    .addEdge('aggregateResponses', "callQwenUpdate")
-    .addEdge('callNemotronUpdate', END)
-    .addEdge('callOpenaiOSSUpdate', END)
-    .addEdge('callQwenUpdate', END);
+    .addEdge('acceptUserMessage', "queryNemotron")
+    .addEdge('acceptUserMessage', "queryOpenaiOSS")
+    .addEdge('acceptUserMessage', "queryQwen")
+    .addEdge('queryNemotron', "aggregateResponses")
+    .addEdge('queryOpenaiOSS', "aggregateResponses")
+    .addEdge('queryQwen', "aggregateResponses")
+    // .addEdge('aggregateResponses', "consolidateNemotron")
+    // .addEdge('aggregateResponses', "consolidateOpenaiOSS")
+    .addEdge('aggregateResponses', "consolidateQwen")
 
 const app = workflow.compile();
 
