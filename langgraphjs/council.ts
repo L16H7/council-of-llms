@@ -2,8 +2,8 @@ import { START, END, StateGraph } from "@langchain/langgraph";
 import { AIMessage } from "@langchain/core/messages";
 
 import { AgentState } from "states";
-import { nemotronLLM, openaiOSSLLM, qwenLLM } from "./LLMs";
-import { createLLMQueryNode, createLLMConsolidateQueryNode } from "./LLMNodes";
+import { nemotronLLM, openaiOSSLLM, qwenLLM, deepseekLLM } from "./LLMs";
+import { createLLMQueryNode, createLLMConsolidateQueryNode, createLLMModerateQueryNode } from "./LLMNodes";
 import { acceptUserMessageNode } from "./HumanNodes";
 import { aggregateResponsesNode } from "./SystemNodes";
 
@@ -14,6 +14,7 @@ const queryQwenNode = createLLMQueryNode(qwenLLM);
 const consolidateNemotronNode = createLLMConsolidateQueryNode(nemotronLLM);
 const consolidateOpenaiOSSNode = createLLMConsolidateQueryNode(openaiOSSLLM);
 const consolidateQwenNode = createLLMConsolidateQueryNode(qwenLLM);
+const moderateDeepseekNode = createLLMModerateQueryNode(deepseekLLM);
 
 
 const workflow = new StateGraph(AgentState)
@@ -22,8 +23,9 @@ const workflow = new StateGraph(AgentState)
     .addNode("queryOpenaiOSS", queryOpenaiOSSNode)
     .addNode("queryQwen", queryQwenNode)
     .addNode("aggregateResponses", aggregateResponsesNode)
-    // .addNode('consolidateNemotron', consolidateNemotronNode)
-    // .addNode('consolidateOpenaiOSS', consolidateOpenaiOSSNode)
+    .addNode('consolidateNemotron', consolidateNemotronNode)
+    .addNode('consolidateOpenaiOSS', consolidateOpenaiOSSNode)
+    .addNode('moderateDeepseek', moderateDeepseekNode)
     .addNode('consolidateQwen', consolidateQwenNode)
     .addEdge(START, "acceptUserMessage")
     .addEdge('acceptUserMessage', "queryNemotron")
@@ -32,9 +34,13 @@ const workflow = new StateGraph(AgentState)
     .addEdge('queryNemotron', "aggregateResponses")
     .addEdge('queryOpenaiOSS', "aggregateResponses")
     .addEdge('queryQwen', "aggregateResponses")
-    // .addEdge('aggregateResponses', "consolidateNemotron")
-    // .addEdge('aggregateResponses', "consolidateOpenaiOSS")
+    .addEdge('aggregateResponses', "consolidateNemotron")
+    .addEdge('aggregateResponses', "consolidateOpenaiOSS")
     .addEdge('aggregateResponses', "consolidateQwen")
+    .addEdge('consolidateNemotron', "moderateDeepseek")
+    .addEdge('consolidateOpenaiOSS', "moderateDeepseek")
+    .addEdge('consolidateQwen', "moderateDeepseek")
+    .addEdge('moderateDeepseek', END);
 
 const app = workflow.compile();
 

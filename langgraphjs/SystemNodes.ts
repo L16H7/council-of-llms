@@ -2,7 +2,7 @@ import { HumanMessage, AIMessage } from "@langchain/core/messages";
 import { Command, Send } from "@langchain/langgraph";
 
 import { AgentState } from "states";
-
+import { DOWNSTREAM_CONTEXT } from "./constants";
 
 
 const aggregateResponsesNode = async (state: typeof AgentState.State) => {
@@ -16,7 +16,10 @@ const aggregateResponsesNode = async (state: typeof AgentState.State) => {
         .join('\n\n--------------------------\n\n');
 
     return {
-        messages: [new HumanMessage(originalQuery as string), new AIMessage(llmResponses)]
+        messages: [
+            new HumanMessage(originalQuery as string, { downstream_context: DOWNSTREAM_CONTEXT.MODERATOR }),
+            new AIMessage(llmResponses, { downstream_context: DOWNSTREAM_CONTEXT.MODERATOR })
+        ]
     };
 }
 
