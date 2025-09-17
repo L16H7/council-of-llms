@@ -10,9 +10,10 @@ const rl = readline.createInterface({
 });
 
 const acceptUserMessageNode = async (state: typeof AgentState.State): Promise<Partial<typeof AgentState.State>> => {
+    const lastMessage = state.messages[state.messages.length - 1];
     return new Promise((resolve) => {
-        rl.question("What wisdom do you seek?\n", (input) => {
-            const newMessage = new HumanMessage(input);
+        rl.question(lastMessage.content as string, (input) => {
+            const newMessage = new HumanMessage(input, { originalQuery: true });
             resolve({
                 messages: [...state.messages, newMessage],
             });

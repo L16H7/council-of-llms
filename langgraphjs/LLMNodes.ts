@@ -3,6 +3,7 @@ dotenv.config();
 
 import { ChatOpenAI } from "@langchain/openai";
 import type { RunnableConfig } from "@langchain/core/runnables";
+import { HumanMessage } from "@langchain/core/messages";
 
 import { AgentState } from "states";
 
@@ -44,7 +45,7 @@ const qwenLLM = new ChatOpenAI(
 );
 
 const createLLMNode = (llm: ChatOpenAI) => {
-    return async (data: typeof AgentState.State, config?: RunnableConfig): Promise<Partial<typeof AgentState.State>> => {
+    return async (data: typeof AgentState.State, config?: RunnableConfig): Promise<typeof AgentState.State> => {
         const { messages } = data;
         const result = await llm.invoke(messages, config);
         return {
@@ -57,4 +58,20 @@ const callNemotronNode = createLLMNode(nemotronLLM);
 const callOpenaiOSSNode = createLLMNode(openaiOSSLLM);
 const callQwenNode = createLLMNode(qwenLLM);
 
-export { callNemotronNode, callOpenaiOSSNode, callQwenNode };
+const updateOriginalResponseNode = (llm: ChatOpenAI) => {
+    return async (data: typeof AgentState.State, config?: RunnableConfig): Promise<typeof AgentState.State> => {
+        const { messages } = data;
+        const prompt = `You are ${llm.model}. You are given your original response and other AI responses. Do you wish to update your answer based on the discussion?`;
+        messages.push(new HumanMessage(prompt));
+        const result = await llm.invoke(messages, config);
+        return {
+            messages: [result],
+        };
+    };
+};
+
+const callNemotronUpdateNode = updateOriginalResponseNode(nemotronLLM);
+const callOpenaiOSSUpdateNode = updateOriginalResponseNode(openaiOSSLLM);
+const callQwenUpdateNode = updateOriginalResponseNode(qwenLLM);
+
+export { callNemotronNode, callOpenaiOSSNode, callQwenNode, callNemotronUpdateNode, callOpenaiOSSUpdateNode, callQwenUpdateNode };

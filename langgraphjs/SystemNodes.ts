@@ -1,20 +1,22 @@
-import { HumanMessage } from "@langchain/core/messages";
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
+import { Command, Send } from "@langchain/langgraph";
 
 import { AgentState } from "states";
 
 
 
-const aggregateResponsesNode = async (state: typeof AgentState.State): Promise<Partial<typeof AgentState.State>> => {
+const aggregateResponsesNode = async (state: typeof AgentState.State) => {
     const messages = state.messages || [];
-    const nemotronResponse = messages.find(msg => msg.additional_kwargs?.source === 'nemotron')?.content || '';
-    const openaiOSSResponse = messages.find(msg => msg.additional_kwargs?.source === 'openaiOSS')?.content || '';
-    const qwenResponse = messages.find(msg => msg.additional_kwargs?.source === 'qwen')?.content || '';
 
-    const aggregatedContent = `Aggregated Responses:\n- Nemotron: ${nemotronResponse}\n- OpenAI OSS: ${openaiOSSResponse}\n- Qwen: ${qwenResponse}`;
+    const originalQuery = messages.find(msg => msg.additional_kwargs?.originalQuery)?.content || '';
 
-    // Append the aggregated message to the state
+    const llmResponses = messages
+        .filter(msg => msg.response_metadata?.model_name)
+        .map(msg => `${msg.response_metadata.model_name}: ${msg.content}`)
+        .join('\n\n--------------------------\n\n');
+
     return {
-        messages: [...messages, new HumanMessage(aggregatedContent)]
+        messages: [new HumanMessage(originalQuery as string), new AIMessage(llmResponses)]
     };
 }
 
