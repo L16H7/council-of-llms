@@ -1,50 +1,11 @@
-import dotenv from "dotenv";
-dotenv.config();
-
-import { ChatOpenAI } from "@langchain/openai";
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { HumanMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage } from "@langchain/core/messages";
+import { ChatOpenAI } from "@langchain/openai";
 
 import { AgentState } from "states";
+import { DOWNSTREAM_CONTEXT } from "./constants";
 
-
-const nemotronLLM = new ChatOpenAI(
-    {
-        model: 'nvidia/nemotron-nano-9b-v2:free',
-        temperature: 0.8,
-        streaming: true,
-        apiKey: process.env.OPENROUTER_API_KEY,
-        configuration: {
-            baseURL: 'https://openrouter.ai/api/v1',
-        },
-    },
-);
-
-const openaiOSSLLM = new ChatOpenAI(
-    {
-        model: 'openai/gpt-oss-20b:free',
-        temperature: 0.8,
-        streaming: true,
-        apiKey: process.env.OPENROUTER_API_KEY,
-        configuration: {
-            baseURL: 'https://openrouter.ai/api/v1',
-        },
-    },
-);
-
-const qwenLLM = new ChatOpenAI(
-    {
-        model: 'qwen/qwen3-30b-a3b:free',
-        temperature: 0.8,
-        streaming: true,
-        apiKey: process.env.OPENROUTER_API_KEY,
-        configuration: {
-            baseURL: 'https://openrouter.ai/api/v1',
-        },
-    },
-);
-
-const createLLMNode = (llm: ChatOpenAI) => {
+const createLLMQueryNode = (llm: ChatOpenAI) => {
     return async (data: typeof AgentState.State, config?: RunnableConfig): Promise<typeof AgentState.State> => {
         const { messages } = data;
         const result = await llm.invoke(messages, config);
@@ -54,24 +15,39 @@ const createLLMNode = (llm: ChatOpenAI) => {
     };
 };
 
-const callNemotronNode = createLLMNode(nemotronLLM);
-const callOpenaiOSSNode = createLLMNode(openaiOSSLLM);
-const callQwenNode = createLLMNode(qwenLLM);
-
-const updateOriginalResponseNode = (llm: ChatOpenAI) => {
+const createLLMConsolidateQueryNode = (llm: ChatOpenAI) => {
     return async (data: typeof AgentState.State, config?: RunnableConfig): Promise<typeof AgentState.State> => {
         const { messages } = data;
+
+        const contextToConsolidate = messages.filter(msg => msg.additional_kwargs?.downstream_context === DOWNSTREAM_CONTEXT.MODERATOR)
         const prompt = `You are ${llm.model}. You are given your original response and other AI responses. Do you wish to update your answer based on the discussion?`;
-        messages.push(new HumanMessage(prompt));
-        const result = await llm.invoke(messages, config);
+        contextToConsolidate.push(new HumanMessage(prompt, { downstream_context: DOWNSTREAM_CONTEXT.MODERATOR }));
+
+        const result = await llm.invoke(contextToConsolidate, config);
+
         return {
-            messages: [result],
+            messages: [new AIMessage(`${llm.model}: ${result.content}`, { downstream_context: DOWNSTREAM_CONTEXT.MODERATOR })],
         };
     };
 };
 
-const callNemotronUpdateNode = updateOriginalResponseNode(nemotronLLM);
-const callOpenaiOSSUpdateNode = updateOriginalResponseNode(openaiOSSLLM);
-const callQwenUpdateNode = updateOriginalResponseNode(qwenLLM);
+const createLLMModerateQueryNode = (llm: ChatOpenAI) => {
+    return async (data: typeof AgentState.State, config?: RunnableConfig): Promise<typeof AgentState.State> => {
+        const { messages } = data;
 
-export { callNemotronNode, callOpenaiOSSNode, callQwenNode, callNemotronUpdateNode, callOpenaiOSSUpdateNode, callQwenUpdateNode };
+        const contextToModerate = messages.filter(msg => msg.additional_kwargs?.downstream_context === DOWNSTREAM_CONTEXT.MODERATOR)
+        const prompt = "You are a moderator. Review the conversation, summarize the answers and provide final recommendation to the user.";
+        contextToModerate.push(new HumanMessage(prompt, { downstream_context: DOWNSTREAM_CONTEXT.MODERATOR }));
+
+        console.log("Moderation context:", contextToModerate);
+
+        const result = await llm.invoke(contextToModerate, config);
+
+        return {
+            messages: [result]
+        };
+    };
+};
+
+
+export { createLLMQueryNode, createLLMConsolidateQueryNode, createLLMModerateQueryNode };
