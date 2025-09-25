@@ -6,4 +6,3 @@ autogenstudio==0.4.2.2
 pyautogen>=0.2.0
 python-dotenv>=1.0.0
 openai>=1.0.0
-asyncio
