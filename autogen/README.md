@@ -10,7 +10,7 @@ pip install -r requirements.txt
 2. Set up environment variables:
 ```bash
 cp .env.example .env
-# Edit .env and add your OpenAI API key
+# Edit .env and add your OpenRouter API key
 ```
 
 3. Run the council:
