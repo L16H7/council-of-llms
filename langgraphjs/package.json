@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "start": "tsx langgraphCouncil.ts"
+    "start": "tsx council.ts"
   },
   "dependencies": {
     "@langchain/core": "^0.3.76",
