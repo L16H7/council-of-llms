@@ -11,17 +11,13 @@ def custom_speaker_selection(last_speaker, groupchat):
     total_agent_responses = len(messages) - 1  # Exclude initial user message
 
     if total_agent_responses < 6:
-        # Determine which agent should speak next in the round robin
         next_agent_index = total_agent_responses % 3
         return round_robin_agents[next_agent_index]
 
-    # Phase 3: Moderator speaks once to finalize
     elif total_agent_responses == 6:
         return moderator
 
-    # End conversation after moderator speaks
-    else:
-        return None
+    return None
 
 
 def main():
